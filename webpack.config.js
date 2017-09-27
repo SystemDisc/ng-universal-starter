@@ -1,72 +1,80 @@
 const ngtools = require('@ngtools/webpack');
 const path = require('path');
+const WebpackShellPlugin = require('webpack-shell-plugin');
 
-let serverConfig = {
+let sharedConfig = function() {
+	return {
+		resolve: {
+			extensions: ['.ts', '.js'],
+		},
+		devtool: 'source-map',
+		module: {
+			rules: [
+				{
+					test: /\.ts$/,
+					loader: '@ngtools/webpack',
+				},
+				{
+					test: /\.html$/,
+					loader: 'raw-loader',
+				},
+				{
+					test: /\.css$/,
+					loader: 'raw-loader',
+				},
+				{
+					test: /\.scss$/,
+					loaders: ['raw-loader', 'sass-loader'],
+				},
+			],
+		}
+	};
+};
+
+let serverConfig = Object.assign(sharedConfig(), {
 	entry: {
-		main: './src/server/main.ts'
-	},
-	resolve: {
-		extensions: ['.ts', '.js']
+		main: path.resolve(__dirname, 'src/server/main.ts'),
 	},
 	target: 'node',
 	node: {
 		__dirname: false,
 		__filename: false,
+		fs: 'empty',
 	},
 	output: {
 		path: path.resolve(__dirname, 'dist', 'server'),
-		filename: '[name].js'
+		filename: '[name].js',
 	},
-	devtool: 'source-map',
 	plugins: [
 		new ngtools.AotPlugin({
 			tsConfigPath: './tsconfig.json',
-		})
+			entryModule: path.resolve(__dirname, 'src/server/app.module#AppServerModule'),
+		}),
 	],
-	module: {
-		rules: [
-			{
-				test: /\.ts$/,
-				loader: '@ngtools/webpack',
-			},
-			{
-				test: /\.html$/,
-				loader: "raw-loader"
-			}
-		]
-	}
-};
+});
 
-let clientConfig = {
+let clientConfig = Object.assign(sharedConfig(), {
 	entry: {
-		main: './src/browser/main.ts'
-	},
-	resolve: {
-		extensions: ['.ts', '.js']
+		main: path.resolve(__dirname, 'src/browser/main.ts'),
 	},
 	target: 'web',
+	node: {
+		fs: 'empty',
+	},
 	output: {
 		path: path.resolve(__dirname, 'dist', 'client'),
-		filename: '[name].js'
+		filename: '[name].js',
 	},
-	devtool: 'source-map',
 	plugins: [
 		new ngtools.AotPlugin({
 			tsConfigPath: './tsconfig.json',
-		})
+			entryModule: path.resolve(__dirname, 'src/browser/app.module#AppModule'),
+		}),
 	],
-	module: {
-		rules: [
-			{
-				test: /\.ts$/,
-				loader: '@ngtools/webpack',
-			},
-			{
-				test: /\.html$/,
-				loader: "raw-loader"
-			}
-		]
-	}
+});
+
+if (process.env.NODE_ENV === 'development') {
+	serverConfig.plugins.push(new WebpackShellPlugin({onBuildEnd:['npm run server:dev']}));
 }
 
 module.exports = [serverConfig, clientConfig];
