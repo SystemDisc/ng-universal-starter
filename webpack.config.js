@@ -1,6 +1,5 @@
 const ngtools = require('@ngtools/webpack');
 const path = require('path');
-const WebpackShellPlugin = require('webpack-shell-plugin');
 
 let sharedConfig = function() {
 	return {
@@ -74,7 +73,33 @@ let clientConfig = Object.assign(sharedConfig(), {
 });
 
 if (process.env.NODE_ENV === 'development') {
-	serverConfig.plugins.push(new WebpackShellPlugin({onBuildEnd:['npm run server:dev']}));
+	const { spawn } = require('child_process');
+	let server;
+	let startServer = () => {
+		console.log('starting server');
+		server = spawn('npm', ['run', 'server:dev']);
+		server.on('exit', () => {
+			startServer();
+		});
+		server.stdout.pipe(process.stdout);
+		server.stderr.pipe(process.stderr);
+		console.log('sending livereload signal');
+		lrServer.refresh('');
+	};
+	let livereload = require('livereload');
+	let lrServer = livereload.createServer();
+	serverConfig.plugins.push(function() {
+		this.plugin('done', (stats) => {
+			console.log('build done');
+			if (server) {
+				console.log('stopping server');
+				server.kill();
+			}
+			else {
+				startServer();
+			}
+		});
+	});
 }
 
 module.exports = [serverConfig, clientConfig];
